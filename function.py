@@ -5,8 +5,10 @@ Created on Fri Apr 30 12:55:38 2021
 
 @author: luc
 """
+
 '''
 funciton list:
+    index_collision: method to compare two input barcode by given length to compare and number of mismatch allowed
     index_collision_exact: method to get back of collision list from list of barcodes. -need improve later
     index_collision_mismatch: under construction
     group_by_barcode: return number of groups based on {sampleL:barcode} list given (under construction)
@@ -14,11 +16,36 @@ funciton list:
     optimize_lanes: under construction
 
 '''
+
 import iteration_utilities 
 from collections import OrderedDict
 
 flow_cells = OrderedDict({"S4": [9000, 10000, 1000, 4],"S2":[3600, 3800, 200, 2],"S1":[1600, 1800, 200, 2],"SP":[700, 800, 100, 2]})
 flow_cell_lanes = OrderedDict({"S4_lane": [2400, 2600, 200],"S2_lane":[1800, 1900, 100],"S1_lane":[800, 900, 100],"SP_lane":[350, 400, 50]})
+
+def index_collision(seq1, seq2, length, num_mis):
+    seq1_frag = seq1[0:length]
+    seq2_frag = seq2[0:length]
+    mismatch1 = 0
+    mismatch2 = 0
+    if '-' in seq1_frag:
+        for i in range(seq1_frag.index('-')):
+            if seq1_frag[i] != seq2_frag[i]:
+                mismatch1 += 1
+        for i in range(seq1_frag.index('-')+1, length):
+            if seq1_frag[i] != seq2_frag[i]:
+                mismatch2 += 1
+    else:
+        for i in range(length):
+            if seq1_frag[i] != seq2_frag[i]:
+                mismatch1 += 1
+                
+    if mismatch1 <= num_mis and mismatch2 <= num_mis:
+        return True
+    else:
+        return False
+
+
 
 # function for checking index collision with exact match
 # Input: list of index(NNNNNNNN-NNNNNNNN)(list of sample class later, sample barcode is list)
