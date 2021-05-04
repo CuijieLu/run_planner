@@ -11,7 +11,7 @@ funciton list:
     index_collision: method to compare two input barcode by given length to compare and number of mismatch allowed
     index_collision_exact: method to get back of collision list from list of barcodes. -need improve later
     index_collision_mismatch: under construction
-    group_by_barcode: return number of groups based on {sampleL:barcode} list given (under construction)
+    group_by_barcode: return number of groups based on barcode list given(list of list)
     optimize_runs: method to get back of optimized run type and sample in it by given reads number -need to add barcode into it later
     optimize_lanes: under construction
 
@@ -19,6 +19,7 @@ funciton list:
 
 import iteration_utilities 
 from collections import OrderedDict
+from copy import deepcopy
 
 flow_cells = OrderedDict({"S4": [9000, 10000, 1000, 4],"S2":[3600, 3800, 200, 2],"S1":[1600, 1800, 200, 2],"SP":[700, 800, 100, 2]})
 flow_cell_lanes = OrderedDict({"S4_lane": [2400, 2600, 200],"S2_lane":[1800, 1900, 100],"S1_lane":[800, 900, 100],"SP_lane":[350, 400, 50]})
@@ -45,7 +46,56 @@ def index_collision(seq1, seq2, length, num_mis):
     else:
         return False
 
+# function that can return the number of groups can by dividen by given a list of grouped_sample(list of list)
+def group_by_barcode(list_of_grouped_samples):
 
+    # get new list by seperating sample have list of barcodeList and poolnormal from pool
+    new_list_of_grouped_samples = []
+    for i in list_of_grouped_samples:
+        if i.barcodeCollision == True:
+            for n in range(len(i.barcodeList)):
+                temp = deepcopy(i)
+                temp.barcodeList = i.barcodeList[n]
+                new_list_of_grouped_samples.append(temp)
+        
+        else:
+            new_list_of_grouped_samples.append(i)
+    
+    min_len = 30
+    
+    # get min length 
+    
+    for i in new_list_of_grouped_samples:
+        for x in i.barcodeList:
+            if len(x) < min_len:
+                min_len = len(x)
+                   
+    group_list = []       
+    while new_list_of_grouped_samples:
+        group_list.append([new_list_of_grouped_samples[0]])
+        new_list_of_grouped_samples.remove(new_list_of_grouped_samples[0])
+        if new_list_of_grouped_samples:
+            temp = []
+            for i in new_list_of_grouped_samples:
+    
+                add = True
+                for barcode in i.barcodeList:
+                    for item in group_list[-1]:
+                        for item_barcode in item.barcodeList:
+                            if index_collision(barcode, item_barcode, min_len, 0):
+                                if not (item.barcodeList.index(item_barcode) == (len(item.barcodeList) - 1)  and i.barcodeList.index(barcode) == (len(i.barcodeList) - 1) and i.containNormal and item.containNormal and i.obj[0].infor['Recipe'] == item.obj[0].infor['Recipe']):
+                                    add = False
+                                    break
+              
+                if add == True:
+                    group_list[-1].append(i)
+                    temp.append(i)
+                    
+            for i in temp:
+                new_list_of_grouped_samples.remove(i)
+        else:
+            break
+    return len(group_list)
 
 # function for checking index collision with exact match
 # Input: list of index(NNNNNNNN-NNNNNNNN)(list of sample class later, sample barcode is list)
@@ -212,4 +262,34 @@ def optimize_runs(list_of_grouped_samples):
 
 
 
+# write list of STRProfileList into excel
+# need modify
+def WriteToExcel(list_of_STRProfileList):
+    '''
+        input = a list of STRProfileList
+        output = excel file generation
+    '''
+    header = ['name', 'PctMatch', 'AMEL', 'CSF1PO', 'D2S1338', 'D3S1358', 'D5S818', 'D7S820', 'D8S1179', 
+              'D13S317', 'D16S539', 'D18S51', 'D19S433', 'D21S11', 'FGA', 'TH01', 'TPOX', 
+              'vWA']
+    
+    all_group = OrderedDict()
+    for idx, val in enumerate(list_of_STRProfileList):    
+        STRList = val.obj
+        df = OrderedDict()
+        for item in STRList:
+            name = item.name
+            value = item.markerInfor
+            df[name] = value.copy()
+            df[name]["name"] = name
+            if item != STRList[0]:
+                pct = item.PctMatchCalc(STRList[0])
+                df[name]["PctMatch"] = '{:.2%}'.format(pct)
+    
+                    
+        all_group[idx] = pd.DataFrame((df[key] for key in df), columns = header)
+    
+    
+    total_df = pd.concat(all_group, ignore_index = False, sort = False)
+    total_df.to_excel("group_infor.xlsx")
 

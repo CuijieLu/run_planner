@@ -17,7 +17,7 @@ class list:
     grouped_samples: sample list with information of totalreads, projectID, is_user_project, barcode list
             function: create from list of samples
                         group samples by isUser, infor(RunLength, RequestID)
-                    
+            use order: group_by_isUser => group_by_runLength => group_by_project
             
     ?lane: one lane of a run, have four types, with infor of list of samples
             with function is_valid
@@ -35,7 +35,7 @@ class sample:
     
     def __init__(self, id):
         self.id = id
-        self.infor =  {key: [] for key in self.infor_list}
+        self.infor =  {key: '' for key in self.infor_list}
         self.isUser = ''
         self.isPool = ''
         
@@ -68,8 +68,11 @@ class grouped_samples(sample):
         self.isUser = ''
         self.runLength = ''
         self.totalreads = 0
+        self.isPool = ''
         self.id = ''
-        self.barcodeList = []    
+        self.barcodeList = []
+        self.barcodeCollision = False
+        self.containNormal = ''
         self.cal_totalreads()
  # function that seperate samples by isUser property, return dictionary with key user/IGO, value group_samples           
     def group_by_isUser(self):
@@ -79,6 +82,11 @@ class grouped_samples(sample):
                 group_list_temp['IsUser'].append(i)        
             else:
                 group_list_temp['IsIGO'].append(i) 
+        
+        if group_list_temp['IsUser'] == []:
+            del group_list_temp['IsUser']
+        if group_list_temp['IsIGO'] == []:
+            del group_list_temp['IsIGO']
         
         group_list = {}
         for key in group_list_temp:
@@ -120,15 +128,21 @@ class grouped_samples(sample):
         for i in self.obj:
             if (i.infor['RequestID'] not in projectList) and i.isPool == False and ("Exome" not in i.infor['Recipe']):
                 projectList.append(i.infor['RequestID'])
-        
+            elif i.isPool == True:
+                projectList.append(i.infor['Pool'])
+            
+            
         group_list_temp = {}
         if projectList:
             for n in projectList:
                 group_list_temp[n] = []
-            
+        
+        
         for i in self.obj:            
             if i.infor['RequestID'] in projectList:
                 group_list_temp[i.infor['RequestID']].append(i)
+            elif i.infor['Pool'] in projectList:
+                group_list_temp[i.infor['Pool']].append(i)
             else:
                 group_list_temp[i.id] = [i]
         
@@ -138,9 +152,45 @@ class grouped_samples(sample):
             group_list[-1].isUser = self.isUser
             group_list[-1].runLength = self.runLength
             group_list[-1].id = key
-            for i in group_list_temp[key]:
-                group_list[-1].barcodeList.append(i.infor['BarcodeSequence'])
+            if group_list_temp[key][0].isPool == True:
+                group_list[-1].isPool = True
+                group_list[-1].barcodeList = [[],[]]
+            else:
+                group_list[-1].isPool = False
                 
+            for i in group_list_temp[key]:
+                if 'POOLEDNORMAL' in i.id and group_list[-1].isPool == True:
+                    group_list[-1].barcodeList[1].append(i.infor['BarcodeSequence'])
+                    group_list[-1].containNormal = True
+                elif group_list[-1].isPool == True:
+                    group_list[-1].barcodeList[0].append(i.infor['BarcodeSequence'])
+                else:
+                    group_list[-1].barcodeList.append(i.infor['BarcodeSequence'])
+            if group_list[-1].isPool == True and not group_list[-1].barcodeList[1]:
+                group_list[-1].barcodeList = group_list[-1].barcodeList[0]
+            elif group_list[-1].isPool == True and group_list[-1].containNormal == True:
+                group_list[-1].barcodeList = group_list[-1].barcodeList[0] + group_list[-1].barcodeList[1]
+                
+            
+            if group_list[-1].isPool == False and (group_list[-1].barcodeList) != len(set(group_list[-1].barcodeList)):
+                group_list[-1].barcodeCollision = True
+                new_barcode_list = []
+                while group_list[-1].barcodeList:
+                    new_barcode_list.append([group_list[-1].barcodeList[0]])
+                    group_list[-1].barcodeList.remove(group_list[-1].barcodeList[0])
+                    if group_list[-1].barcodeList:
+                        temp = []
+                        for i in group_list[-1].barcodeList:
+                            if i not in new_barcode_list[-1]:
+                                temp.append(i)
+                                new_barcode_list[-1].append(i)
+                                
+                        for i in temp:
+                            group_list[-1].barcodeList.remove(i)
+                    else:
+                        break
+                    
+                group_list[-1].barcodeList = new_barcode_list
         return group_list
     
     
