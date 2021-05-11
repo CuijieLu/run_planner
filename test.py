@@ -30,7 +30,7 @@ import pandas as pd
 #print (test4)
 #
 #
-test = components.ImportFromExcel("dev RunPlanner-05-06-2021.xlsx")
+test = components.ImportFromExcel("RunPlanner-05-10-2021.xlsx")
 test1 = test.group_by_isUser()
 for key in test1:
     if key != 'nan':
@@ -44,7 +44,7 @@ for key in test1:
                     function.WriteToExcel(i[1:],key + key1 + i[0]+'.xlsx')
 
 #test_group = function.group_lanes(test4[1][1:],2)
-#
+print(function.group_by_barcode(test3))
 #result = []
 #for i in test_group:
 #    temp = []
