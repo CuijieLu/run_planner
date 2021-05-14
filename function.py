@@ -43,7 +43,7 @@ def index_collision(seq1, seq2, length, num_mis):
             if seq1_frag[i] != seq2_frag[i]:
                 mismatch1 += 1
                 
-    if mismatch1 <= num_mis and mismatch2 <= num_mis:
+    if mismatch1 <= num_mis * 2 and mismatch2 <= num_mis * 2:
         return True
     else:
         return False
